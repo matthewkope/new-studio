@@ -218,13 +218,37 @@ if (JUMP !== null) history.scrollRestoration = 'manual';
 /* colored hero — the only color in the film */
 let vanta = null;
 if (!reduced) {
+  /* the stock FOG shader ignores iMouse — patch it so the fog is pushed
+     radially away from the cursor (viscous "sludge" displacement) */
+  const probeEl = document.createElement('div');
+  probeEl.style.cssText = 'position:absolute;width:2px;height:2px;visibility:hidden';
+  document.body.appendChild(probeEl);
+  const probe = VANTA.FOG({ el: probeEl, mouseControls: false, touchControls: false });
+  const FogProto = probe.constructor.prototype;
+  probe.destroy(); probeEl.remove();
+  FogProto.fragmentShader = FogProto.fragmentShader.replace(
+    'float f = fbm(st+r);',
+    'vec2 mn = iMouse / iResolution;\n' +
+    '  mn.y = 1.0 - mn.y;\n' +
+    '  vec2 m = mn * 3.0;\n' +
+    '  m.x *= 0.7 * iResolution.x / iResolution.y;\n' +
+    '  m *= zoom;\n' +
+    '  vec2 d = st - m;\n' +
+    '  float dd = length(d);\n' +
+    '  vec2 dir2 = d / max(dd, 0.0001);\n' +
+    '  float push = 1.1 * exp(-dd * dd * 1.6);\n' +
+    '  st += dir2 * push;\n' +
+    '  r += vec2(-dir2.y, dir2.x) * push * 0.5;\n' +
+    '  float f = fbm(st+r);'
+  );
   vanta = VANTA.FOG({
     el: '#vanta',
     highlightColor: 0x7c5cff, midtoneColor: 0xff3d81,
     lowlightColor: 0x1b0e3f, baseColor: 0x0a0616,
     blurFactor: 0.55, speed: 1.4, zoom: 0.9,
-    mouseControls: true, touchControls: true
+    mouseControls: true, touchControls: true, mouseEase: true
   });
+  window.__vanta = vanta;
 } else {
   document.getElementById('vanta').style.background =
     'radial-gradient(80% 80% at 30% 70%, #7c5cff33, transparent), #0a0616';
